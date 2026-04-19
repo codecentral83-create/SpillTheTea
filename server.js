@@ -8,45 +8,36 @@ const jwt = require("jsonwebtoken");
 const OpenAI = require("openai");
 
 const app = express();
-const PORT = 4000;
+const PORT = process.env.PORT || 4000;
 const JWT_SECRET = process.env.JWT_SECRET || "change-me-in-env";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
+// Database
 let db;
 
 try {
-  db = new Database("./chat-app.db");
+  db = new Database(path.join(__dirname, "chat-app.db"));
   console.log("Connected to SQLite database.");
 } catch (err) {
   console.error("Database connection error:", err.message);
+  process.exit(1);
 }
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    username TEXT NOT NULL UNIQUE,
-    display_name TEXT NOT NULL,
-    status TEXT DEFAULT 'soft girl era',
-    theme TEXT DEFAULT 'soft',
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-  )
-`);
+// Create tables
+try {
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      username TEXT NOT NULL UNIQUE,
+      display_name TEXT NOT NULL,
+      status TEXT DEFAULT 'soft girl era',
+      theme TEXT DEFAULT 'soft',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
 
-db.exec(`
-  CREATE TABLE IF NOT EXISTS messages (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL,
-    sender TEXT NOT NULL CHECK(sender IN ('user', 'bot')),
-    text TEXT NOT NULL,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id)
-  )
-`);
-
-  db.run(`
     CREATE TABLE IF NOT EXISTS messages (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id INTEGER NOT NULL,
@@ -54,13 +45,21 @@ db.exec(`
       text TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (user_id) REFERENCES users(id)
-    )
+    );
   `);
 
+  console.log("Database tables ready.");
+} catch (err) {
+  console.error("Database setup error:", err.message);
+  process.exit(1);
+}
+
+// Middleware
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
+// Helpers
 function getToneInstructions(tone) {
   if (tone === "soft") {
     return `
@@ -106,7 +105,7 @@ function generateToken(user) {
   return jwt.sign(
     {
       userId: user.id,
-      username: user.username
+      username: user.username,
     },
     JWT_SECRET,
     { expiresIn: "7d" }
@@ -132,88 +131,52 @@ function authMiddleware(req, res, next) {
   }
 }
 
-function runQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.run(sql, params, function runCallback(err) {
-      if (err) reject(err);
-      else resolve(this);
-    });
-  });
-}
+// Prepared statements
+const getUserByUsernameStmt = db.prepare(`
+  SELECT * FROM users WHERE username = ?
+`);
 
-function getQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.get(sql, params, (err, row) => {
-      if (err) reject(err);
-      else resolve(row);
-    });
-  });
-}
+const getUserByIdStmt = db.prepare(`
+  SELECT id, username, display_name, status, theme
+  FROM users
+  WHERE id = ?
+`);
 
-function allQuery(sql, params = []) {
-  return new Promise((resolve, reject) => {
-    db.all(sql, params, (err, rows) => {
-      if (err) reject(err);
-      else resolve(rows);
-    });
-  });
-}
+const insertUserStmt = db.prepare(`
+  INSERT INTO users (username, display_name, status, theme)
+  VALUES (?, ?, ?, ?)
+`);
 
+const updateUserStmt = db.prepare(`
+  UPDATE users
+  SET display_name = ?, status = ?, theme = ?
+  WHERE id = ?
+`);
+
+const getMessagesStmt = db.prepare(`
+  SELECT id, sender, text, created_at
+  FROM messages
+  WHERE user_id = ?
+  ORDER BY id ASC
+`);
+
+const insertMessageStmt = db.prepare(`
+  INSERT INTO messages (user_id, sender, text)
+  VALUES (?, ?, ?)
+`);
+
+const deleteMessagesStmt = db.prepare(`
+  DELETE FROM messages
+  WHERE user_id = ?
+`);
+
+// Routes
 app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "public", "home.html"));
 });
 
-/* SIGN UP */
-app.post("/api/login", async (req, res) => {
-  try {
-    const username = String(req.body.username || "").trim().toLowerCase();
-    const displayName = String(req.body.displayName || "").trim() || "You";
-
-    if (!username) {
-      return res.status(400).json({ error: "Username is required." });
-    }
-
-    // check if user exists
-    let user = await getQuery(
-      `SELECT * FROM users WHERE username = ?`,
-      [username]
-    );
-
-    // if not, create them automatically
-    if (!user) {
-      const result = await runQuery(
-        `INSERT INTO users (username, display_name)
-         VALUES (?, ?)`,
-        [username, displayName]
-      );
-
-      user = await getQuery(
-        `SELECT * FROM users WHERE id = ?`,
-        [result.lastID]
-      );
-    }
-
-    const token = generateToken(user);
-
-    res.json({
-      token,
-      user: {
-        id: user.id,
-        username: user.username,
-        displayName: user.display_name,
-        status: user.status,
-        theme: user.theme
-      }
-    });
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Login failed." });
-  }
-});
-
-/* LOGIN */
-app.post("/api/login", async (req, res) => {
+// Login / auto-create user
+app.post("/api/login", (req, res) => {
   try {
     const username = String(req.body.username || "").trim().toLowerCase();
     const displayName = String(req.body.displayName || "").trim() || "You";
@@ -224,53 +187,35 @@ app.post("/api/login", async (req, res) => {
       return res.status(400).json({ error: "Username is required." });
     }
 
-    let user = await getQuery(
-      `SELECT * FROM users WHERE username = ?`,
-      [username]
-    );
+    let user = getUserByUsernameStmt.get(username);
 
     if (!user) {
-      const result = await runQuery(
-        `INSERT INTO users (username, display_name, status, theme)
-         VALUES (?, ?, ?, ?)`,
-        [username, displayName, status, theme]
-      );
-
-      user = await getQuery(
-        `SELECT * FROM users WHERE id = ?`,
-        [result.lastID]
-      );
+      const result = insertUserStmt.run(username, displayName, status, theme);
+      user = db.prepare("SELECT * FROM users WHERE id = ?").get(result.lastInsertRowid);
     }
 
     const token = generateToken(user);
 
-    res.json({
+    return res.json({
       token,
       user: {
         id: user.id,
         username: user.username,
         displayName: user.display_name,
         status: user.status,
-        theme: user.theme
-      }
+        theme: user.theme,
+      },
     });
   } catch (error) {
     console.error("Login failed:", error);
-    res.status(500).json({ error: "Login failed." });
+    return res.status(500).json({ error: "Login failed." });
   }
 });
 
-/* CURRENT USER PROFILE */
-app.get("/api/me", authMiddleware, async (req, res) => {
+// Current user profile
+app.get("/api/me", authMiddleware, (req, res) => {
   try {
-    const user = await getQuery(
-      `
-      SELECT id, username, display_name, status, theme
-      FROM users
-      WHERE id = ?
-      `,
-      [req.user.userId]
-    );
+    const user = getUserByIdStmt.get(req.user.userId);
 
     if (!user) {
       return res.status(404).json({ error: "User not found." });
@@ -282,8 +227,8 @@ app.get("/api/me", authMiddleware, async (req, res) => {
         username: user.username,
         displayName: user.display_name,
         status: user.status,
-        theme: user.theme
-      }
+        theme: user.theme,
+      },
     });
   } catch (error) {
     console.error("Profile fetch error:", error);
@@ -291,30 +236,16 @@ app.get("/api/me", authMiddleware, async (req, res) => {
   }
 });
 
-/* UPDATE PROFILE */
-app.put("/api/me", authMiddleware, async (req, res) => {
+// Update profile
+app.put("/api/me", authMiddleware, (req, res) => {
   try {
     const displayName = String(req.body.displayName || "").trim() || "You";
     const status = String(req.body.status || "").trim() || "soft girl era";
     const theme = String(req.body.theme || "").trim() || "soft";
 
-    await runQuery(
-      `
-      UPDATE users
-      SET display_name = ?, status = ?, theme = ?
-      WHERE id = ?
-      `,
-      [displayName, status, theme, req.user.userId]
-    );
+    updateUserStmt.run(displayName, status, theme, req.user.userId);
 
-    const updated = await getQuery(
-      `
-      SELECT id, username, display_name, status, theme
-      FROM users
-      WHERE id = ?
-      `,
-      [req.user.userId]
-    );
+    const updated = getUserByIdStmt.get(req.user.userId);
 
     return res.json({
       user: {
@@ -322,8 +253,8 @@ app.put("/api/me", authMiddleware, async (req, res) => {
         username: updated.username,
         displayName: updated.display_name,
         status: updated.status,
-        theme: updated.theme
-      }
+        theme: updated.theme,
+      },
     });
   } catch (error) {
     console.error("Profile update error:", error);
@@ -331,19 +262,10 @@ app.put("/api/me", authMiddleware, async (req, res) => {
   }
 });
 
-/* GET CHAT HISTORY */
-app.get("/api/messages", authMiddleware, async (req, res) => {
+// Get chat history
+app.get("/api/messages", authMiddleware, (req, res) => {
   try {
-    const messages = await allQuery(
-      `
-      SELECT id, sender, text, created_at
-      FROM messages
-      WHERE user_id = ?
-      ORDER BY id ASC
-      `,
-      [req.user.userId]
-    );
-
+    const messages = getMessagesStmt.all(req.user.userId);
     return res.json({ messages });
   } catch (error) {
     console.error("Messages fetch error:", error);
@@ -351,14 +273,10 @@ app.get("/api/messages", authMiddleware, async (req, res) => {
   }
 });
 
-/* CLEAR CHAT HISTORY */
-app.delete("/api/messages", authMiddleware, async (req, res) => {
+// Clear chat history
+app.delete("/api/messages", authMiddleware, (req, res) => {
   try {
-    await runQuery(
-      "DELETE FROM messages WHERE user_id = ?",
-      [req.user.userId]
-    );
-
+    deleteMessagesStmt.run(req.user.userId);
     return res.json({ success: true });
   } catch (error) {
     console.error("Messages delete error:", error);
@@ -366,23 +284,17 @@ app.delete("/api/messages", authMiddleware, async (req, res) => {
   }
 });
 
-/* CHAT */
+// Chat
 app.post("/api/chat", authMiddleware, async (req, res) => {
   try {
     const userMessage = String(req.body.message || "").trim();
-    const tone = String(req.body.tone || "balanced");
+    const tone = String(req.body.tone || "balanced").trim().toLowerCase();
 
     if (!userMessage) {
       return res.status(400).json({ error: "Message is required." });
     }
 
-    await runQuery(
-      `
-      INSERT INTO messages (user_id, sender, text)
-      VALUES (?, 'user', ?)
-      `,
-      [req.user.userId, userMessage]
-    );
+    insertMessageStmt.run(req.user.userId, "user", userMessage);
 
     let replyText = "Something went wrong talking to the AI.";
 
@@ -390,7 +302,7 @@ app.post("/api/chat", authMiddleware, async (req, res) => {
       const response = await client.responses.create({
         model: "gpt-4.1-mini",
         instructions: getToneInstructions(tone),
-        input: userMessage
+        input: userMessage,
       });
 
       replyText = response.output_text || "I don't know what to say yet.";
@@ -402,13 +314,7 @@ app.post("/api/chat", authMiddleware, async (req, res) => {
       }
     }
 
-    await runQuery(
-      `
-      INSERT INTO messages (user_id, sender, text)
-      VALUES (?, 'bot', ?)
-      `,
-      [req.user.userId, replyText]
-    );
+    insertMessageStmt.run(req.user.userId, "bot", replyText);
 
     return res.json({ reply: replyText });
   } catch (error) {
@@ -417,6 +323,7 @@ app.post("/api/chat", authMiddleware, async (req, res) => {
   }
 });
 
+// Start server
 app.listen(PORT, () => {
-  console.log(`Server running on http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
