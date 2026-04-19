@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spill The Tea - Login</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="theme-soft">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <main class="page-center">
+    <section class="login-card">
+      <div class="login-left">
+        <div class="brand-pill">Welcome back</div>
+        <h2>Step into your cozy chat space</h2>
+        <p>
+          Choose your display name, set your status, and pick the vibe you want
+          your app to have.
+        </p>
+      </div>
+
+      <div class="login-right">
+        <form id="loginForm" class="login-form">
+          <label for="displayName">Display Name</label>
+          <input
+            type="text"
+            id="displayName"
+            placeholder="Enter your name"
+            required
+          />
+
+          <label for="statusText">Status</label>
+          <input
+            type="text"
+            id="statusText"
+            placeholder="ex: just vibing"
+          />
+
+          <label for="chatTheme">Choose Your Theme</label>
+          <select id="chatTheme">
+            <option value="soft">Soft Pink</option>
+            <option value="lavender">Lavender Dream</option>
+            <option value="peach">Peach Glow</option>
+          </select>
+
+          <button type="submit" class="primary-btn full-btn">Enter Chat</button>
+          <a href="home.html" class="text-link">Back to home</a>
+        </form>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

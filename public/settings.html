@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spill The Tea - Settings</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="theme-soft">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <main class="page-center">
+    <section class="simple-panel">
+      <div class="panel-top">
+        <div>
+          <div class="brand-pill">Settings</div>
+          <h2>Customize your space</h2>
+        </div>
+        <a href="chat.html" class="secondary-btn link-btn">Back to Chat</a>
+      </div>
+
+      <div class="settings-layout">
+        <div class="profile-preview-card">
+          <div class="profile-avatar large-avatar" id="settingsPreviewAvatar">Y</div>
+          <h3 id="settingsPreviewName">You</h3>
+          <p id="settingsPreviewStatus">soft girl era</p>
+        </div>
+
+        <div class="settings-form-wrap">
+          <div class="settings-group">
+            <label for="settingsName">Display Name</label>
+            <input type="text" id="settingsName" placeholder="Your name" />
+          </div>
+
+          <div class="settings-group">
+            <label for="settingsStatus">Status</label>
+            <input type="text" id="settingsStatus" placeholder="Your vibe" />
+          </div>
+
+          <div class="settings-group">
+            <label for="settingsTheme">Theme</label>
+            <select id="settingsTheme">
+              <option value="soft">Soft Pink</option>
+              <option value="lavender">Lavender Dream</option>
+              <option value="peach">Peach Glow</option>
+            </select>
+          </div>
+
+          <div class="settings-actions">
+            <button id="saveSettingsPageBtn" class="primary-btn" type="button">
+              Save Changes
+            </button>
+            <button id="clearChatHistoryBtn" class="secondary-btn" type="button">
+              Clear Chat History
+            </button>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>

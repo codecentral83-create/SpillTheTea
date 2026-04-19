@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Spill The Tea - Chat</title>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body class="theme-soft">
+  <div class="bg-orb orb-1"></div>
+  <div class="bg-orb orb-2"></div>
+  <div class="bg-orb orb-3"></div>
+
+  <div class="app-layout">
+    <aside class="sidebar">
+      <div class="sidebar-top">
+        <div class="sidebar-brand">Spill The Tea</div>
+
+        <button id="newChatBtn" class="sidebar-btn" type="button">+ New Chat</button>
+
+        <nav class="sidebar-links">
+          <a href="profile.html" class="sidebar-nav-link">Profile</a>
+          <a href="settings.html" class="sidebar-nav-link">Settings</a>
+        </nav>
+
+        <div class="sidebar-section">
+          <p class="sidebar-label">Conversation</p>
+          <div class="conversation-item active-convo">Mia Chat</div>
+        </div>
+      </div>
+
+      <div class="sidebar-bottom">
+        <a href="profile.html" class="profile-card profile-link">
+          <div class="profile-avatar" id="profileAvatar">Y</div>
+          <div class="profile-meta">
+            <span id="profileName">You</span>
+            <small id="profileStatus">soft girl era</small>
+          </div>
+        </a>
+
+        <button id="logoutBtn" class="logout-btn wide-btn" type="button">Log Out</button>
+      </div>
+    </aside>
+
+    <main class="chat-panel">
+      <header class="chat-header">
+        <div class="chat-header-left">
+          <div class="mia-avatar">M</div>
+          <div>
+            <h2>Mia</h2>
+            <p>online • cozy mode</p>
+          </div>
+        </div>
+      </header>
+
+      <div class="tone-control">
+        <label for="toneSelect">Response Style:</label>
+        <select id="toneSelect">
+          <option value="soft">Soft &amp; Supportive</option>
+          <option value="balanced" selected>Balanced</option>
+          <option value="blunt">Blunt &amp; Honest</option>
+        </select>
+      </div>
+
+      <section id="chatBox" class="chat-box"></section>
+
+      <div id="typingStatus" class="typing-status hidden">
+        Mia is typing...
+      </div>
+
+      <form id="chatForm" class="input-bar">
+        <input
+          id="userInput"
+          type="text"
+          placeholder="Type your message..."
+          autocomplete="off"
+        />
+        <button id="sendBtn" type="submit">Send</button>
+      </form>
+    </main>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
