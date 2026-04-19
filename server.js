@@ -3,7 +3,7 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const path = require("path");
-const sqlite3 = require("sqlite3").verbose();
+const Database = require("better-sqlite3");
 const jwt = require("jsonwebtoken");
 const OpenAI = require("openai");
 
@@ -15,16 +15,18 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const db = new sqlite3.Database("./chat-app.db", (err) => {
-  if (err) {
-    console.error("Database connection error:", err.message);
-  } else {
-    console.log("Connected to SQLite database.");
-  }
-});
+const Database = require("better-sqlite3");
 
-db.serialize(() => {
-  db.run(`
+let db;
+
+try {
+  db = new Database("./chat-app.db");
+  console.log("Connected to SQLite database.");
+} catch (err) {
+  console.error("Database connection error:", err.message);
+}
+
+  db.exec(`
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       username TEXT NOT NULL UNIQUE,
@@ -45,7 +47,6 @@ db.serialize(() => {
       FOREIGN KEY (user_id) REFERENCES users(id)
     )
   `);
-});
 
 app.use(cors());
 app.use(express.json());
