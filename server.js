@@ -15,8 +15,6 @@ const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const Database = require("better-sqlite3");
-
 let db;
 
 try {
@@ -26,16 +24,27 @@ try {
   console.error("Database connection error:", err.message);
 }
 
-  db.exec(`
-    CREATE TABLE IF NOT EXISTS users (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      username TEXT NOT NULL UNIQUE,
-      display_name TEXT NOT NULL,
-      status TEXT DEFAULT 'soft girl era',
-      theme TEXT DEFAULT 'soft',
-      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+db.exec(`
+  CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    username TEXT NOT NULL UNIQUE,
+    display_name TEXT NOT NULL,
+    status TEXT DEFAULT 'soft girl era',
+    theme TEXT DEFAULT 'soft',
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  )
+`);
+
+db.exec(`
+  CREATE TABLE IF NOT EXISTS messages (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id INTEGER NOT NULL,
+    sender TEXT NOT NULL CHECK(sender IN ('user', 'bot')),
+    text TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
+  )
+`);
 
   db.run(`
     CREATE TABLE IF NOT EXISTS messages (
